@@ -5,9 +5,11 @@
     width="500"
   >
     <div class="monitortitle">
+      <div class="wrap">
       <h3>Platform monitor</h3>
       <v-spacer></v-spacer>
-      <v-btn text icon>moi</v-btn>
+      <v-btn text icon @click="dialog=false"><v-icon>mdi-close</v-icon></v-btn>
+      </div>
     </div>
     <div class="gleismonitor">
         <v-container class="mt-n7">
@@ -54,6 +56,10 @@
   }
 </script>
 <style scoped>
+.wrap {
+  display: flex;
+  align-items: center;
+}
 .alink {
   color: white;
 }
