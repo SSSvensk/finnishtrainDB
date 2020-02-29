@@ -16,7 +16,8 @@ app.get('/stations', (req, res) => {
 })
 
 app.get('/trains', (req, res) => {
-    axios.get('https://rata.digitraffic.fi/api/v1/live-trains/station/' + req.query.shortCode).then(response => {
+    axios.get('https://rata.digitraffic.fi/api/v1/live-trains/station/' + req.query.shortCode + '?departing_trains=50').then(response => {
+        console.log("data haettu")
         res.send(response.data)
     })
     .catch(e => {

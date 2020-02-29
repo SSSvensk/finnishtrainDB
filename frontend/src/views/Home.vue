@@ -28,24 +28,26 @@
         <div v-if="!loadingTrains">
           <v-container fluid>
             <v-row>
-              <v-col md="2">Aika time / Zeit</v-col>
-              <v-col md="4">Kautta via</v-col>
-              <v-col md="3">Määränpää Destination</v-col>
-              <v-col md="3">Laituri platform</v-col>
+              <v-col md="2" sm="4">Aika time / Zeit</v-col>
+              <v-col md="4" v-if="$vuetify.breakpoint.mdAndUp">Kautta via</v-col>
+              <v-col md="3" sm="5">Määränpää Destination</v-col>
+              <v-col md="3" sm="3">Laituri platform</v-col>
             </v-row>
             <v-row v-for="(train, index) in departs" v-bind:key="index" class="trainrow" @click="selectTrain(train)">
-              <v-col md="1">
+              <v-col md="1" sm="2">
                 <div class="colcontent">{{train.trainNumber}}</div>
               </v-col>
-              <v-col md="1">
+              <v-col md="1" sm="2">
                 <div class="timecol">{{train.time}}</div>
               </v-col>
-              <v-col md="4">
+              <v-col md="4" v-if="$vuetify.breakpoint.mdAndUp">
                 <div class="colcontent">{{train.viaStops}}</div>
               </v-col>
-              <v-col md="3" class="text-left"><h3>{{train.destination}}</h3></v-col>
-              <v-col md="1">{{train.track}}</v-col>
-              <v-col md="2">
+              <v-col md="3" sm="5" class="text-left">
+                <h3>{{train.destination}}</h3>
+              </v-col>
+              <v-col md="1" sm="3">{{train.track}}</v-col>
+              <v-col md="2" v-if="$vuetify.breakpoint.mdAndUp">
                 <div class="timecol" v-if="train.delay > 0">{{train.delay}}</div></v-col>
             </v-row>
           </v-container>
@@ -110,7 +112,7 @@ export default {
   methods: {
     selectTrain(train) {
       console.log(train)
-      this.$refs.traindialog.open(train)
+      this.$refs.traindialog.open(train, this.model)
       
     },
     loadStations() {
@@ -121,6 +123,7 @@ export default {
             this.stations.push(response.data[i])
           }
         }
+        this.$store.commit('addStations', this.stations)
       })
     },
     loadTrains() {
@@ -168,7 +171,6 @@ export default {
                           viaStops.push({ stopTime: trainStopping, stop: response.data[i].timeTableRows[j] })
                           viaStops.sort((a,b) => (a.stopTime > b.stopTime) ? -1 : ((b.stopTime > a.stopTime) ? 1 : 0));
                           smallestStop = viaStops[1].stopTime
-                          console.log(viaStops)
                         }
                       }
                       
@@ -195,16 +197,17 @@ export default {
               if (inspectedStationFound) {
                 var viaStopString = ""
 
-                
-
                 //Searching the destination station name
                 for (var k = 0; k < this.stations.length; k++) {
                   if (response.data[i].timeTableRows[response.data[i].timeTableRows.length - 1].stationShortCode == this.stations[k].stationShortCode) {
                     obj.destination = this.stations[k].stationName
                   }
-                  if (nextStop.stationShortCode == this.stations[k].stationShortCode) {
-                    viaStopString = this.stations[k].stationName
+                  if (nextStop) {
+                    if (nextStop.stationShortCode == this.stations[k].stationShortCode) {
+                      viaStopString = this.stations[k].stationName
+                    }
                   }
+                  
                 }
 
                 viaStops.sort(function(a,b){return new Date(a.stop.scheduledTime) - new Date(b.stop.scheduledTime);});

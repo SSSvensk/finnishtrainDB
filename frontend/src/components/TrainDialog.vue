@@ -31,7 +31,43 @@
         
     </div>
     <div class="gleismonitor">
-      <div class="pt-3 pb-3 text-center"><a class="alink">SHOW COMPLETE JOURNEY</a></div>
+      <div class="pt-3 pb-3 text-center"><a class="alink" @click="loadJourney()">{{ journeyOpen ? "HIDE" : "SHOW COMPLETE JOURNEY" }}</a></div>
+      <v-container v-if="journeyOpen">
+        <v-row v-for="(viastop, index) in viaStops" v-bind:key="index">
+          <v-col sm="1" v-if="index == 0 || index == viaStops.length - 1" class="endcontainer">
+            <span class="dot"></span>
+          </v-col>
+          <v-col sm="1" v-else class="viacontainer">
+            <span class="dot"></span>
+          </v-col>
+          <v-col sm="3">
+            <div v-if="viastop.scheduledArrivalTime">
+              <h1 v-if="index == 0 || index == viaStops.length - 1">
+                {{ viastop.scheduledArrivalTime.getHours() >= 10 ? "" : "0" }}{{ viastop.scheduledArrivalTime.getHours() }}:{{ viastop.scheduledArrivalTime.getMinutes() >= 10 ? "" : "0" }}{{ viastop.scheduledArrivalTime.getMinutes() }}
+              </h1>
+              <p v-else>{{ viastop.scheduledArrivalTime.getHours() >= 10 ? "" : "0" }}{{ viastop.scheduledArrivalTime.getHours() }}:{{ viastop.scheduledArrivalTime.getMinutes() >= 10 ? "" : "0" }}{{ viastop.scheduledArrivalTime.getMinutes() }}</p>
+            </div>
+            <div v-if="viastop.scheduledDepartureTime">
+              <h1 v-if="index == 0 || index == viaStops.length - 1">
+                {{ viastop.scheduledDepartureTime.getHours() >= 10 ? "" : "0" }}{{ viastop.scheduledDepartureTime.getHours() }}:{{ viastop.scheduledDepartureTime.getMinutes() >= 10 ? "" : "0" }}{{ viastop.scheduledDepartureTime.getMinutes() }}
+              </h1>
+              <p v-else class="mt-n4">{{ viastop.scheduledDepartureTime.getHours() >= 10 ? "" : "0" }}{{ viastop.scheduledDepartureTime.getHours() }}:{{ viastop.scheduledDepartureTime.getMinutes() >= 10 ? "" : "0" }}{{ viastop.scheduledDepartureTime.getMinutes() }}</p>
+            </div>
+          </v-col>
+          <v-col sm="6">
+            <h1 v-if="index == 0 || index == viaStops.length - 1">
+              {{ viastop.name }}
+            </h1>
+            <p v-else>{{viastop.name}}</p>
+          </v-col>
+          <v-col sm="2">
+            <h1 v-if="index == 0 || index == viaStops.length - 1">
+              {{ viastop.commercialTrack }}
+            </h1>
+            <p v-else>{{viastop.commercialTrack}}</p>
+          </v-col>
+        </v-row>
+      </v-container>
     </div>
 
   </v-dialog>
@@ -43,19 +79,126 @@
     data() {
       return {
         train: {},
-        dialog: false
+        dialog: false,
+        station: {},
+        viaStops: [],
+        journeyOpen: false
+      }
+    },
+    computed: {
+      stations() {
+        return JSON.parse(JSON.stringify(this.$store.getters.stations))
       }
     },
     methods: {
-      open(train) {
+      open(train, station) {
         this.dialog = true
         this.train = train
-        
+        this.station = station
+        this.journeyOpen = false
+        this.viaStops = []
+      },
+      loadJourney() {
+        //var stationFound = false
+        if (!this.journeyOpen) {
+        this.journeyOpen = true
+        console.log(this.train)
+        for (var i = 0; i < this.train.train.timeTableRows.length; i++) {
+          var stationName = ""
+          for (var j = 0; j < this.stations.length; j++) {
+            if (this.stations[j].stationShortCode == this.train.train.timeTableRows[i].stationShortCode) {
+              stationName = this.stations[j].stationName
+            }
+          }
+          if (this.train.train.timeTableRows[i].commercialStop && this.train.train.timeTableRows[i].type == "DEPARTURE" && i == 0) {
+
+            //Jos junalla on estimaattiaika
+            if (this.train.train.timeTableRows[i].liveEstimateTime) {
+              this.viaStops.push({
+                code: this.train.train.timeTableRows[i].stationShortCode,
+                name: stationName,
+                commercialTrack: this.train.train.timeTableRows[i].commercialTrack, 
+                type: this.train.train.timeTableRows[i].type, 
+                scheduledDepartureTime: new Date(this.train.train.timeTableRows[i].scheduledTime), 
+                actualDepartureTime: new Date(this.train.train.timeTableRows[i].liveEstimateTime)
+              }) 
+            } else {
+              this.viaStops.push({
+                code: this.train.train.timeTableRows[i].stationShortCode,
+                name: stationName,
+                commercialTrack: this.train.train.timeTableRows[i].commercialTrack, 
+                type: this.train.train.timeTableRows[i].type, 
+                scheduledDepartureTime: new Date(this.train.train.timeTableRows[i].scheduledTime), 
+                actualDepartureTime: new Date(this.train.train.timeTableRows[i].actualTime)
+              }) 
+            }
+            
+          }
+          else if (this.train.train.timeTableRows[i].commercialStop && this.train.train.timeTableRows[i].type == "DEPARTURE" && i > 0) {
+
+            //Jos junalla on estimaattiaika
+            if (this.train.train.timeTableRows[i].liveEstimateTime) {
+              this.viaStops.push({
+                code: this.train.train.timeTableRows[i].stationShortCode,
+                name: stationName,
+                commercialTrack: this.train.train.timeTableRows[i].commercialTrack, 
+                type: this.train.train.timeTableRows[i].type, 
+                scheduledDepartureTime: new Date(this.train.train.timeTableRows[i].scheduledTime), 
+                actualDepartureTime: new Date(this.train.train.timeTableRows[i].liveEstimateTime),
+                scheduledArrivalTime: new Date(this.train.train.timeTableRows[i-1].scheduledTime),
+                actualArrivalTime: new Date(this.train.train.timeTableRows[i-1].liveEstimateTime)
+              }) 
+            } else {
+              this.viaStops.push({
+                code: this.train.train.timeTableRows[i].stationShortCode,
+                name: stationName,
+                commercialTrack: this.train.train.timeTableRows[i].commercialTrack, 
+                type: this.train.train.timeTableRows[i].type, 
+                scheduledDepartureTime: new Date(this.train.train.timeTableRows[i].scheduledTime),
+                actualDepartureTime: new Date(this.train.train.timeTableRows[i].actualTime),
+                scheduledArrivalTime: new Date(this.train.train.timeTableRows[i-1].scheduledTime),
+                actualArrivalTime: new Date(this.train.train.timeTableRows[i-1].actualTime)
+              }) 
+            }
+            
+          } else if (i == this.train.train.timeTableRows.length - 1) {
+            if (this.train.train.timeTableRows[i].liveEstimateTime) {
+              this.viaStops.push({
+                code: this.train.train.timeTableRows[i].stationShortCode,
+                name: stationName,
+                commercialTrack: this.train.train.timeTableRows[i].commercialTrack, 
+                type: this.train.train.timeTableRows[i].type, 
+                scheduledDepartureTime: new Date(this.train.train.timeTableRows[i].scheduledTime), 
+                actualDepartureTime: new Date(this.train.train.timeTableRows[i].liveEstimateTime)
+              }) 
+            } else {
+              this.viaStops.push({
+                code: this.train.train.timeTableRows[i].stationShortCode,
+                name: stationName,
+                commercialTrack: this.train.train.timeTableRows[i].commercialTrack, 
+                type: this.train.train.timeTableRows[i].type, 
+                scheduledDepartureTime: new Date(this.train.train.timeTableRows[i].scheduledTime), 
+                actualDepartureTime: new Date(this.train.train.timeTableRows[i].actualTime)
+              }) 
+            }
+          }
+        }
+        } else {
+          this.journeyOpen = false
+        }
       }
     }
   }
 </script>
 <style scoped>
+.endcontainer {
+  height: 80px;
+  position: relative;
+}
+.viacontainer {
+  height: 70px;
+  position: relative;
+}
 .wrap {
   display: flex;
   align-items: center;
@@ -69,6 +212,7 @@
   height: 80px;
 }
 .monitortitle {
+  position: sticky;
   color: white;
   background-color: rgb(98, 104, 189);
   border: 3px solid rgb(98, 104, 189);
@@ -77,5 +221,24 @@
   background-color: rgb(4, 4, 146);
   color: white;
   border: 3px solid rgb(98, 104, 189);
+}
+.dot {
+  height: 10px;
+  width: 10px;
+  border: 2px solid white;
+  border-radius: 50%;
+  display: inline-block;
+  margin: 0;
+  position: absolute;
+  top: 50%;
+  -ms-transform: translateY(-50%);
+  transform: translateY(-50%);
+}
+.normaldot {
+  height: 10px;
+  width: 10px;
+  border: 2px solid white;
+  border-radius: 50%;
+  display: inline-block;
 }
 </style>
