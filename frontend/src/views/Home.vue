@@ -2,7 +2,7 @@
 <div>
   <v-container fluid>
     <div v-if="!stationSelected" class="text-center headlinediv">
-      <h1 class="pt-12 pb-5">Otsikko</h1>
+      <h1 class="pt-12 pb-5">Aikataulut</h1>
     </div>
     <div class="searchdiv">
       <v-autocomplete
@@ -52,6 +52,7 @@
             </v-row>
           </v-container>
         </div>
+        
         <div v-else>
           <v-progress-circular
             indeterminate
@@ -60,6 +61,22 @@
           ></v-progress-circular>
         </div>
         
+      </div>
+      <div class="text-center pa-3" v-else-if="stationsLoadFailed">
+        <v-btn @click="loadStations">
+          Lataa uudestaan
+        </v-btn>
+      </div>
+      <div class="text-center pa-3" v-else-if="userCoordinates && stationsLoaded">
+        <h2 class="text-left">Lähimmät asemat</h2>
+        <v-row v-for="(obj, index) in closestStations" v-bind:key="'station'+index">
+          <v-col sm="9" class="text-left">
+            <a @click="selectStationFromList(obj.station)">{{ obj.station.stationName }}</a>
+          </v-col>
+          <v-col sm="3">
+            {{ obj.distance.toFixed(2) }} km
+          </v-col>
+        </v-row>
       </div>
   </v-container>
   <TrainDialog ref="traindialog"></TrainDialog>
@@ -80,36 +97,87 @@ export default {
   data() {
     return {
       model: null,
+      stationsLoaded: false,
       trains: [],
       stations: [],
       loadingTrains: false,
       departs: [],
-      stationSelected: false
+      stationSelected: false,
+      stationsLoadFailed: false,
+      geolocationError: false,
+      userCoordinates: null
     }
   },
   computed: {
     timeNow() {
       return new Date().getTime()
-    }
+    },
+    closestStations() {
+      var distances = []
+      this.stations.forEach(station => {
+        distances.push({
+          station: station, 
+          distance: this.distance(this.userCoordinates.lat, this.userCoordinates.lng, station.latitude, station.longitude)
+        })
+      })
+      distances.sort((a, b) => (a.distance > b.distance) ? 1 : -1)
+      return distances.slice(0, 10)
+    },
   },
   mounted() {
+    this.getPosition()
     this.loadStations()
-    console.log(this.timeNow)
   },
   watch: {
     model() {
       this.stationSelected = true
-      console.log("changed")
-      console.log(this.model)
       if (this.model) {
         this.loadTrains()
       } else {
         this.stationSelected = false
       }
-      
     }
   },
   methods: {
+    selectStationFromList(data) {
+      this.model = data
+    },
+    distance(lat1, lon1, lat2, lon2) {
+      if ((lat1 == lat2) && (lon1 == lon2)) {
+        return 0;
+      }
+      else {
+        var radlat1 = Math.PI * lat1/180;
+        var radlat2 = Math.PI * lat2/180;
+        var theta = lon1-lon2;
+        var radtheta = Math.PI * theta/180;
+        var dist = Math.sin(radlat1) * Math.sin(radlat2) + Math.cos(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
+        if (dist > 1) {
+          dist = 1;
+        }
+        dist = Math.acos(dist);
+        dist = dist * 180/Math.PI;
+        dist = dist * 60 * 1.1515;
+        dist = dist * 1.609344
+        return dist;
+      }
+    },
+    getPosition() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(this.showPosition);
+      } else {
+        console.log("Geolocation is not supported by this browser.");
+        this.geolocationError = true
+      }
+    },
+    showPosition(position) {
+      console.log("latitude", position.coords.latitude)
+      console.log("Longitude: ", position.coords.longitude)
+      this.userCoordinates = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      }
+    },
     selectTrain(train) {
       console.log(train)
       this.$refs.traindialog.open(train, this.model)
@@ -117,6 +185,7 @@ export default {
     },
     loadStations() {
       axios.get('/stations').then(response => {
+        this.stationsLoaded = true
         console.log(response)
         for (var i = 0; i < response.data.length; i++) {
           if (response.data[i].passengerTraffic) {
@@ -124,6 +193,10 @@ export default {
           }
         }
         this.$store.commit('addStations', this.stations)
+      })
+      .catch(e => {
+        this.stationsLoadFailed = true
+        console.log(e)
       })
     },
     loadTrains() {

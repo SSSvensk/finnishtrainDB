@@ -2,7 +2,7 @@
   <v-dialog
     v-model="dialog"
     :fullscreen="$vuetify.breakpoint.smAndDown"
-    width="500"
+    width="600"
   >
     <div class="monitortitle">
       <div class="wrap">
@@ -31,27 +31,45 @@
         
     </div>
     <div class="gleismonitor">
-      <div class="pt-3 pb-3 text-center"><a class="alink" @click="loadJourney()">{{ journeyOpen ? "HIDE" : "SHOW COMPLETE JOURNEY" }}</a></div>
+      <div class="pt-3 pb-3 text-center">
+        <a class="alink" @click="loadJourney()">
+          {{ journeyOpen ? "HIDE" : "SHOW COMPLETE JOURNEY" }}
+        </a>
+      </div>
+      
       <v-container v-if="journeyOpen">
-        <v-row v-for="(viastop, index) in viaStops" v-bind:key="index">
+        <v-row v-for="(viastop, index) in viaStops" v-bind:key="index" class="stoprow">
           <v-col sm="1" v-if="index == 0 || index == viaStops.length - 1" class="endcontainer">
-            <span class="dot"></span>
+            <span class="visitedStation" v-if="(viastop.actualDepartureTime) && new Date(viastop.actualDepartureTime) <= new Date()"></span>
+            <span class="dot" v-else></span>
           </v-col>
           <v-col sm="1" v-else class="viacontainer">
-            <span class="dot"></span>
+            <span class="visitedStation" v-if="((viastop.actualArrivalTime) && new Date(viastop.actualArrivalTime) <= new Date()) || ((viastop.actualDepartureTime) && new Date(viastop.actualDepartureTime) <= new Date())"></span>
+            <span class="dot" v-else></span>
           </v-col>
           <v-col sm="3">
+            <!-- Arrival time -->
             <div v-if="viastop.scheduledArrivalTime">
+              <!--First arrival place time -->
               <h1 v-if="index == 0 || index == viaStops.length - 1">
-                {{ viastop.scheduledArrivalTime.getHours() >= 10 ? "" : "0" }}{{ viastop.scheduledArrivalTime.getHours() }}:{{ viastop.scheduledArrivalTime.getMinutes() >= 10 ? "" : "0" }}{{ viastop.scheduledArrivalTime.getMinutes() }}
+                {{ formatTime(viastop.scheduledArrivalTime) }}
               </h1>
-              <p v-else>{{ viastop.scheduledArrivalTime.getHours() >= 10 ? "" : "0" }}{{ viastop.scheduledArrivalTime.getHours() }}:{{ viastop.scheduledArrivalTime.getMinutes() >= 10 ? "" : "0" }}{{ viastop.scheduledArrivalTime.getMinutes() }}</p>
+              <p v-else>
+                {{ formatTime(viastop.scheduledArrivalTime) }}                
+                <!--Possible delay -->
+                {{ (viastop.actualArrivalTime.getTime() - viastop.scheduledArrivalTime.getTime() > (1000 * 60)) ? getDelay(viastop.scheduledArrivalTime.getTime(), viastop.actualArrivalTime.getTime()) : "" }}
+              </p>
             </div>
+
             <div v-if="viastop.scheduledDepartureTime">
               <h1 v-if="index == 0 || index == viaStops.length - 1">
-                {{ viastop.scheduledDepartureTime.getHours() >= 10 ? "" : "0" }}{{ viastop.scheduledDepartureTime.getHours() }}:{{ viastop.scheduledDepartureTime.getMinutes() >= 10 ? "" : "0" }}{{ viastop.scheduledDepartureTime.getMinutes() }}
+                {{ formatTime(viastop.scheduledDepartureTime) }}
               </h1>
-              <p v-else class="mt-n4">{{ viastop.scheduledDepartureTime.getHours() >= 10 ? "" : "0" }}{{ viastop.scheduledDepartureTime.getHours() }}:{{ viastop.scheduledDepartureTime.getMinutes() >= 10 ? "" : "0" }}{{ viastop.scheduledDepartureTime.getMinutes() }}</p>
+              <p v-else class="mt-n4">
+                {{ formatTime(viastop.scheduledDepartureTime) }}
+                <!--Possible delay -->
+                {{ (viastop.actualDepartureTime.getTime() - viastop.scheduledDepartureTime.getTime()  > (1000 * 60)) ? getDelay(viastop.scheduledDepartureTime.getTime(), viastop.actualDepartureTime.getTime()) : "" }}
+              </p>
             </div>
           </v-col>
           <v-col sm="6">
@@ -91,6 +109,32 @@
       }
     },
     methods: {
+      addZero(number) {
+        if (number < 10) {
+          return "0" + number
+        }
+        return number
+      },
+      formatTime(timeISOString) {
+        if (timeISOString) {
+          const dateObject = new Date(timeISOString)
+          var hours = dateObject.getHours()
+          hours = this.addZero(hours)
+
+          var minutes = dateObject.getMinutes()
+          minutes = this.addZero(minutes)
+          return hours + ":" + minutes
+        }
+        return ""
+      },
+      getDelay(scheduledTime, actualTime) {
+        var diff = -1 * parseInt((scheduledTime - actualTime) / (60 * 1000))
+        var returnstring = ""
+        if (diff > 0) {
+          returnstring += "+"
+        }
+        return "(" + returnstring + "" + diff + " min)"
+      },
       open(train, station) {
         this.dialog = true
         this.train = train
@@ -191,6 +235,10 @@
   }
 </script>
 <style scoped>
+.stoprow:hover {
+  background-color: rgb(32, 32, 252);
+  cursor: pointer;
+}
 .endcontainer {
   height: 80px;
   position: relative;
@@ -222,7 +270,21 @@
   color: white;
   border: 3px solid rgb(98, 104, 189);
 }
+.visitedStation {
+  color: "red";
+  height: 10px;
+  width: 10px;
+  border: 8px solid white;
+  border-radius: 50%;
+  display: inline-block;
+  margin: 0;
+  position: absolute;
+  top: 50%;
+  -ms-transform: translateY(-50%);
+  transform: translateY(-50%);
+}
 .dot {
+  color: "red";
   height: 10px;
   width: 10px;
   border: 2px solid white;
